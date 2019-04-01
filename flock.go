@@ -20,6 +20,7 @@ import (
 	"context"
 	"os"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -118,7 +119,16 @@ func (f *Flock) setFh() error {
 	// create it if it doesn't exist, and open the file read-only.
 	fh, err := os.OpenFile(f.path, os.O_CREATE|os.O_RDONLY, os.FileMode(0600))
 	if err != nil {
-		return err
+		// retry for directory
+		errno := err.(*os.PathError).Err.(syscall.Errno)
+		if errno == syscall.EISDIR {
+			fh, err = os.OpenFile(f.path, os.O_RDONLY, os.FileMode(0600))
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
 	}
 
 	// set the filehandle on the struct
